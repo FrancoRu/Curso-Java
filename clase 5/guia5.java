@@ -1,9 +1,9 @@
-
+import java.util.ArrayList;
 
 class Guia5{
     public static void main(String args[]) {
         producto newProdu = new producto("Fafa", 12.5);
-        System.out.println(newProdu.getNombre()+" "+newProdu.getprecio());
+        System.out.println(newProdu.getNombre()+" "+newProdu.getPrecio());
     }
 }
 

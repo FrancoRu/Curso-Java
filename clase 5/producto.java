@@ -10,7 +10,7 @@ public class producto {
     public String getNombre(){
         return this.nombre;
     }
-    public double getprecio(){
+    public double getPrecio(){
         return this.precio;
     }
 }
