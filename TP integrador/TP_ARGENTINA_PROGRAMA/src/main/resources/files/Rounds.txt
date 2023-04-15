@@ -1,0 +1,9 @@
+Group A;1
+Group B;1
+Group C;1
+Group D;1
+Quarter A;2
+Quarter B;2
+SemiFinal;3
+Final;4
+Third Place;5

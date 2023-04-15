@@ -1,0 +1,16 @@
+Mexico;Latin American country known for its culture, gastronomy and beaches.
+United States;great world power and home to New York City and Hollywood.
+Canada;Nordic country famous for its natural beauty and quality of life.
+Brazil;South American country famous for its beaches, soccer and carnival.
+Argentina;South American country known for its wines, tango and landscapes.
+Spain;European country famous for its culture, gastronomy and festivals.
+France;European country known for its art, fashion and sophisticated cuisine.
+Germany;European country famous for its engineering, beer and sausages.
+Italy;European country known for its art, history and gastronomy.
+England;European country home to the capital London and the British royal family.
+China;Asian country famous for its ancient culture and growing economy.
+Japan;Asian country known for its technology, anime, and traditional culture.
+South Korea;Asian country famous for its pop music, film and technology.
+Russia;Eurasian country known for its history, culture and cold climate.
+Australia;oceanic country famous for its nature, unique animals and relaxed lifestyle.
+India;Asian country known for its rich culture, religion, and spicy food.
