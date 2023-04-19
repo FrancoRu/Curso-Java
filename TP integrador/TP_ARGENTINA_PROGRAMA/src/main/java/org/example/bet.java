@@ -7,25 +7,22 @@ import java.util.Map;
 class bet {
     private final ArrayList<team> selectedTeams; //ARREGLO DINAMICO DE EQUIPOS
     private final ArrayList<enums.result> finalResul; //ARREGLO DINAMICO DE ENUMS
-
+    private final ArrayList<Integer> listOfCodGames; //ARREGLO QUE GUARDA LOS CODIGOS DE PARTIDOS
     private final  HashMap<Integer, Integer> listResult;
-    private final ArrayList<Integer> listOfCodGames;
-    private final int points;
 
-    public bet(int points){
+    public bet(){
         this.selectedTeams = new ArrayList<>();
         this.finalResul = new ArrayList<>();
         this.listOfCodGames = new ArrayList<>();
         this.listResult = new HashMap<>();
-        this.points = points;
-    }//CONSTRUCTOR DE PRONOSTICO
-    public void setAddBet(team selectedTeam, enums.result result, int codGame){ // CARGA DE LOS ARREGLOS CON LA INFORMACION ANTES DICHA
+    }
+    public void setAddBet(team selectedTeam, enums.result result, int codGame){
         this.selectedTeams.add(selectedTeam);
         this.finalResul.add(result);
         this.listOfCodGames.add(codGame);
     }
 
-    public int getCalculatePoints(HashMap<Integer, game> listOfGames){ // RETORNA EL PUNTAJE TOTAL DE LA PERSONA
+    public int getCalculatePoints(HashMap<Integer, game> listOfGames){
         int points = 0;
 
         for (game p : listOfGames.values()){
@@ -33,8 +30,9 @@ class bet {
             if(cod>-1){
 
                 if(this.finalResul.get(cod) == p.getWinner(this.selectedTeams.get(cod))){
-                    points += this.points;
+                    //points += this.points;
                     this.listResult.put(p.getCodRound(), this.listResult.getOrDefault(p.getCodRound(), 0) + 1);
+                    points++;
                 }
             }
         }
@@ -60,7 +58,7 @@ class bet {
         int aux = 0;
         for(Integer cantRound : list.values()){
 
-            for(int i = ant ; i<cantRound+ant; i++){
+            for(int i = ant ; i<cantRound+ant && i <listRound.size()+1; i++){
                 int valueListRound = listRound.get(i);
                 int valueListResult =  listResult.getOrDefault(i,0);
                 if(valueListRound == valueListResult && valueListResult != 0){

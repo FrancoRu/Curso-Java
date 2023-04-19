@@ -3,6 +3,6 @@ package org.example;
 public class App
 {
     public static void main ( String[] args ) {
-        info.start();
+        DatabaseManager.start();
     }
 }

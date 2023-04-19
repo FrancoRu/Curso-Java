@@ -7,7 +7,7 @@ import java.sql.SQLException;
 import java.util.*;
 import java.sql.ResultSet;
 
-public  class info{
+public  class DatabaseManager {
     private static Connection conn;
     private static PreparedStatement pstmt;
 
@@ -48,6 +48,25 @@ public  class info{
             messageSQL(e);
         }
     }
+    private static int setPERSON_BETS_MATCH_TEAM(int idGame, int idTeam, int idEnum, int idPeople, int idRound){
+        try{
+            String sql = "INSERT INTO PERSON_BETS_MATCH_TEAM (idGame, idTeam, idEnum, idPeople, idRound) " +
+                    "SELECT ?, ?, ?, ?, ? FROM DUAL " +
+                    "WHERE NOT EXISTS (SELECT * FROM PERSON_BETS_MATCH_TEAM WHERE idPeople = ? AND idGame = ?)";
+            setPreparedStatement(sql);
+            getPreparedStatement().setInt(1, idGame);
+            getPreparedStatement().setInt(2, idTeam);
+            getPreparedStatement().setInt(3, idEnum);
+            getPreparedStatement().setInt(4, idPeople);
+            getPreparedStatement().setInt(5,idRound);
+            getPreparedStatement().setInt(6, idPeople);
+            getPreparedStatement().setInt(7, idGame);
+            return getPreparedStatement().executeUpdate();
+        }catch (SQLException e){
+            messageSQL(e);
+        }
+        return -1;
+    }
     private static void incrementMapValue(Map<Integer, Integer> map, int key) {
         map.put(key, map.getOrDefault(key, 0) + 1);
     }
@@ -59,29 +78,38 @@ public  class info{
 
     //BETS DOWNLOADS
 
-    private static void downBets(HashMap<Long, people> listOfPeople, HashMap<String, team> listOfTeams){
+
+    private static HashMap<Long, people> downBets(HashMap<Long, people> listOfPeople, HashMap<String, team> listOfTeams){
+
         try {
-            String sql = "SELECT * FROM PERSON_BETS_MATCH_TEAM" ;
+            String sql = "SELECT PEOPLE.UserDNI, TEAM.nameTeam AS TEAM, ENUMS.enums AS ENUMS, GAME.id AS GAME " +
+                    "FROM PEOPLE " +
+                    "JOIN PERSON_BETS_MATCH_TEAM ON PEOPLE.id = PERSON_BETS_MATCH_TEAM.idPeople " +
+                    "JOIN TEAM ON TEAM.id = PERSON_BETS_MATCH_TEAM.idTeam " +
+                    "JOIN GAME ON GAME.id = PERSON_BETS_MATCH_TEAM.idGame " +
+                    "JOIN ENUMS ON ENUMS.id = PERSON_BETS_MATCH_TEAM.idEnum;";
             setPreparedStatement(sql);
             try (ResultSet resultSet = getPreparedStatement().executeQuery()) {
                 while (resultSet.next()) {
-                    int idGame = resultSet.getInt("idGame");
-                    int idTeam = resultSet.getInt("idTeam");
-                    int idEnum = resultSet.getInt("idEnum");
-                    int idPeople = resultSet.getInt("idPeople");
-                    listOfPeople.get(FindPeople(idPeople)).addBet(
-                            listOfTeams.get(FindTeam(idTeam)), FindEnum(idEnum), idGame);
+                    long dni = Long.parseLong(resultSet.getString("UserDNI"));
+                    String nameTeam = resultSet.getString("TEAM");
+                    enums.result result = enums.result.valueOf(resultSet.getString("ENUMS"));
+                    int codGame = resultSet.getInt("GAME");
+                    team selected = listOfTeams.get(nameTeam);
+                    listOfPeople.get(dni).addBet(selected,result, codGame);
                 }
                 for (people p : listOfPeople.values()) {
                     p.setPoints(downGames(listOfTeams), roundMatches, phasedRounds);
                 }
                 listOfPeople = sortPeople(listOfPeople);
-                show(listOfPeople);
             }
+            return listOfPeople;
         }catch (SQLException e) {
             messageSQL(e);
         }
+        return null;
     }
+
     //INFORMATION DOWNLOAD
     private static HashMap<Long, people> downPeople(int points, int pointRounds, int pointsPhase){
         HashMap<Long, people> listOfPeople = new HashMap<>();
@@ -144,22 +172,26 @@ public  class info{
     private static HashMap<Integer, game> downGames(HashMap<String, team> listOfTeams){
         try {
             HashMap<Integer, game> listOfGames = new HashMap<>();
-            String sql = "SELECT * FROM GAME";
+            String sql = "SELECT GAME.id, TEAM1.nameTeam AS team1, TEAM2.nameTeam AS team2, scoreGame1, scoreGame2, idRound " +
+                    "FROM GAME " +
+                    "JOIN TEAM AS TEAM1 ON GAME.idTeam1 = TEAM1.id " +
+                    "JOIN TEAM AS TEAM2 ON GAME.idTeam2 = TEAM2.id;";
             setPreparedStatement(sql);
             try(ResultSet resultSet = getPreparedStatement().executeQuery()){
                 while (resultSet.next()){
-                    int idTeam1 = resultSet.getInt("idTeam1");
-                    int idTeam2 = resultSet.getInt("idTeam2");
                     int scoreEquip1 = resultSet.getInt("scoreGame1");
                     int scoreEquip2 = resultSet.getInt("scoreGame2");
                     int id = resultSet.getInt("id");
                     int idRound = resultSet.getInt("idRound");
+                    String nameTeam1 = resultSet.getString("team1");
+                    String nameTeam2 = resultSet.getString("team2");
                     listOfGames.put(id,new game(
-                            listOfTeams.get(FindTeam(idTeam1)),
-                            listOfTeams.get(FindTeam(idTeam2)),
+                            listOfTeams.get(nameTeam1),
+                            listOfTeams.get(nameTeam2),
                             scoreEquip1, scoreEquip2, id, idRound
                     ));
                 }
+
                 return listOfGames;
             }
         }catch (SQLException e){
@@ -167,90 +199,6 @@ public  class info{
         }
         return null;
     }
-    //INFORMATION DOWNLOADS
-    private static enums.result FindEnum(int key){
-        try{
-            String sql = "SELECT enums FROM ENUMS WHERE id = ?";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, key);
-            try(ResultSet resultSet = getPreparedStatement().executeQuery()){
-                if(resultSet.next()) {
-                    String resul = resultSet.getString("enums");
-                    try {
-                        return enums.result.valueOf(resul);
-                    } catch (IllegalArgumentException e) {
-                        System.out.println(e.getMessage());
-                    }
-                }
-            }
-        }catch (SQLException e){
-            messageSQL(e);
-        }
-        return null;
-    }
-    private static team FindTeams(int key){
-        try{
-            String sql = "SELECT * FROM TEAM WHERE id = ?";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, key);
-            try(ResultSet resultSet = getPreparedStatement().executeQuery()){
-                if(resultSet.next()){
-                    return new team(resultSet.getString("nameTeam"),resultSet.getString("descriptionTeam") );
-                }
-            }
-        }catch (SQLException e){
-            messageSQL(e);
-        }
-        return null;
-    }
-    private static people FindPeoples(int key){
-        try{
-            String sql = "SELECT * FROM PEOPLE WHERE id = ?";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, key);
-            try(ResultSet resultSet = getPreparedStatement().executeQuery()){
-                if(resultSet.next()){
-                    return new people(resultSet.getString("Username"),
-                            Long.parseLong(resultSet.getString("UserDNI")), 0,0,0);
-                }
-            }
-
-        }catch (SQLException e){
-            messageSQL(e);
-        }
-        return null;
-    }
-    private static String FindTeam(int key){
-        try{
-            String sql = "SELECT nameTeam FROM TEAM WHERE id = ?";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, key);
-            try(ResultSet resultSet = getPreparedStatement().executeQuery()){
-                if(resultSet.next()){
-                    return resultSet.getString("nameTeam");
-                }
-            }
-        }catch (SQLException e){
-            messageSQL(e);
-        }
-        return null;
-    }
-    private static Long FindPeople(int key){
-        try{
-            String sql = "SELECT UserDNI FROM PEOPLE WHERE id = ?";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, key);
-            try(ResultSet resultSet = getPreparedStatement().executeQuery()){
-                if(resultSet.next()){
-                    return Long.parseLong(resultSet.getString("UserDNI"));
-                }
-            }
-        }catch (SQLException e){
-            messageSQL(e);
-        }
-        return null;
-    }
-
     private static int FindIdPeople(Long DNI){
         try{
             String sql = "SELECT id FROM PEOPLE WHERE UserDNI = ?";
@@ -323,21 +271,6 @@ public  class info{
             messageSQL(e);
         }
         return -1;
-    }
-    private static  String FindRound(int key){
-        try{
-            String sql = "SELECT nameRounds FROM ROUNDS WHERE id = ?";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, key);
-            try(ResultSet rs = getPreparedStatement().executeQuery()){
-                if(rs.next()){
-                    return rs.getString("nameRounds");
-                }
-            }
-        }catch (SQLException e) {
-            messageSQL(e);
-        }
-        return null;
     }
     private static void downRoundMatches(){
         String sql = "SELECT idRound FROM GAME;";
@@ -455,7 +388,7 @@ public  class info{
     //BETS UPLOAD
     private static void LoadDataBet(String path){
         ArrayList<String> list = fileUpload.getBet(path);
-        try{
+        //try{
             String[] arrBet;
             int idUser, idGame, idTeam, idEnum, idRound;
             for(String List : list){
@@ -466,24 +399,13 @@ public  class info{
                 idTeam = FindIdTeam(arrBet[4]);
                 idEnum = FindIdEnum(arrBet[5]);
                 if(idUser > -1 && idTeam > -1 && idEnum > -1 && idGame > -1) {
-                    String sql = "INSERT INTO PERSON_BETS_MATCH_TEAM (idGame, idTeam, idEnum, idPeople, idRound) " +
-                            "SELECT ?, ?, ?, ?, ? FROM DUAL " +
-                            "WHERE NOT EXISTS (SELECT * FROM PERSON_BETS_MATCH_TEAM WHERE idPeople = ? AND idGame = ?)";
-                    setPreparedStatement(sql);
-                    getPreparedStatement().setInt(1, idGame);
-                    getPreparedStatement().setInt(2, idTeam);
-                    getPreparedStatement().setInt(3, idEnum);
-                    getPreparedStatement().setInt(4, idUser);
-                    getPreparedStatement().setInt(5,idRound);
-                    getPreparedStatement().setInt(6, idUser);
-                    getPreparedStatement().setInt(7, idGame);
-                    getPreparedStatement().executeUpdate();
+                    setPERSON_BETS_MATCH_TEAM(idGame, idTeam, idEnum, idUser, idRound);
                 }
             }
             upload("bets");
-        }catch(SQLException e){
-            messageSQL(e);
-        }
+        //}catch(SQLException e){
+            //messageSQL(e);
+        //}
     }
     private static void LoadPhases(String path){
         ArrayList<String> listOfPhases = fileUpload.getPhases(path);
@@ -856,26 +778,11 @@ public  class info{
             messageMenus("one or all parameters invalid.");
             return;
         }
-        try{
-            String sql = "INSERT INTO PERSON_BETS_MATCH_TEAM (idGame, idTeam, idEnum, idPeople, idRound) " +
-                          "SELECT ?, ?, ?, ?, ? FROM DUAL " +
-                          "WHERE NOT EXISTS (SELECT * FROM PERSON_BETS_MATCH_TEAM WHERE idPeople = ? AND idGame = ?)";
-            setPreparedStatement(sql);
-            getPreparedStatement().setInt(1, idGame);
-            getPreparedStatement().setInt(2, idTeam);
-            getPreparedStatement().setInt(3, idEnum);
-            getPreparedStatement().setInt(4, idUser);
-            getPreparedStatement().setInt(5,idRound);
-            getPreparedStatement().setInt(6, idUser);
-            getPreparedStatement().setInt(7, idGame);
-            int par = getPreparedStatement().executeUpdate();
-            if(par>0){
-                upload("bets");
-            }else{
-                messageMenus("the bets already exists");
-            }
-        }catch(SQLException e){
-            messageSQL(e);
+        int par = setPERSON_BETS_MATCH_TEAM(idGame,idTeam,idEnum,idUser,idRound);
+        if(par>0){
+            upload("bets");
+        }else{
+            messageMenus("the bets already exists");
         }
     }
     //Menu Downloading
@@ -955,15 +862,27 @@ public  class info{
         idGame = scanner.nextInt();
         if(idGame < 0){
             messageMenus("game not found.");
+            return;
         }
         try{
-            String sql = "SELECT * FROM GAME WHERE id = ?;";
+            String sql = "SELECT GAME.id, TEAM1.nameTeam AS team1, TEAM2.nameTeam AS team2, scoreGame1, scoreGame2, idRound " +
+                    "FROM GAME " +
+                    "JOIN TEAM AS TEAM1 ON GAME.idTeam1 = TEAM1.id " +
+                    "JOIN TEAM AS TEAM2 ON GAME.idTeam2 = TEAM2.id " +
+                    "WHERE GAME.id = ?;";
             setPreparedStatement(sql);
             getPreparedStatement().setInt(1, idGame);
             try(ResultSet resultSet = getPreparedStatement().executeQuery()){
+                HashMap<String, team> listOfTeam = downTeam();
                 if(resultSet.next()){
-                    team Team1 = FindTeams(resultSet.getInt("idTeam1"));
-                    team Team2 = FindTeams(resultSet.getInt("idTeam2"));
+                    String nameTeam1 = resultSet.getString("team1");
+                    String nameTeam2 = resultSet.getString("team2");
+                    team Team1 = listOfTeam.get(nameTeam1);
+                    team Team2 = listOfTeam.get(nameTeam2);
+                    if(Team1 == null || Team2 == null){
+                        messageMenus(" game not found.");
+                        return;
+                    }
                     game e = new game(Team1, Team2, resultSet.getInt("scoreGame1"),
                             resultSet.getInt("scoreGame2"),resultSet.getInt("id")
                             ,resultSet.getInt("idRound"));
@@ -980,25 +899,28 @@ public  class info{
         idBet = scanner.nextInt();
         if(idBet < 0){
             messageMenus("bet invalid.");
+            return;
         }
         try{
-            String sql = "SELECT * FROM PERSON_BETS_MATCH_TEAM WHERE id = ?;";
+            String sql = "SELECT PEOPLE.Username, PEOPLE.UserDNI ,TEAM.nameTeam AS TEAM, ENUMS.enums AS ENUMS, GAME.id AS GAME, ROUNDS.nameRounds AS ROUNDS " +
+                    "FROM PEOPLE " +
+                    "JOIN PERSON_BETS_MATCH_TEAM ON PEOPLE.id = PERSON_BETS_MATCH_TEAM.idPeople " +
+                    "JOIN TEAM ON TEAM.id = PERSON_BETS_MATCH_TEAM.idTeam " +
+                    "JOIN GAME ON GAME.id = PERSON_BETS_MATCH_TEAM.idGame " +
+                    "JOIN ENUMS ON ENUMS.id = PERSON_BETS_MATCH_TEAM.idEnum " +
+                    "JOIN ROUNDS ON ROUNDS.id = PERSON_BETS_MATCH_TEAM.idRound " +
+                    "WHERE PERSON_BETS_MATCH_TEAM.id = ?;";
             setPreparedStatement(sql);
             getPreparedStatement().setInt(1, idBet);
             try(ResultSet resultSet = getPreparedStatement().executeQuery()){
                 if(resultSet.next()){
-                    int idGame = resultSet.getInt("idGame");
-                    int idEnum = resultSet.getInt("idEnum");
-                    int idRound = resultSet.getInt("idRound");
-                    team Team = FindTeams(resultSet.getInt("idTeam"));
-                    people Person = FindPeoples(resultSet.getInt("idPeople"));
-                    if(Person == null || Team == null) return;
-                    System.out.println("Name: "+Person.getName());
-                    System.out.println("DNI: "+Person.getDNI());
-                    System.out.println("id Game: "+idGame);
-                    System.out.println("selected name Team: "+Team.getName());
-                    System.out.println("Bet: "+FindEnum(idEnum));
-                    System.out.println("Round: "+FindRound(idRound));
+                    int idGame = resultSet.getInt("GAME");
+                    String result = resultSet.getString("ENUMS");
+                    String DNI = resultSet.getString("UserDNI");
+                    String nameP = resultSet.getString("Username");
+                    String round = resultSet.getString("ROUNDS");
+                    String team = resultSet.getString("TEAM");
+                    printBet(idGame,result,DNI,nameP,round,team);
 
                 }else{
                     messageMenus("bet not found.");
@@ -1038,6 +960,16 @@ public  class info{
             messageSQL(e);
         }
     }
+    private static void printBet(int idGame, String result, String DNI, String nameP, String round, String team){
+        System.out.println("***************************************************");
+        System.out.println("Name: " + nameP);
+        System.out.println("DNI: " + DNI);
+        System.out.println("id Game: " + idGame);
+        System.out.println("selected name Team: " + team);
+        System.out.println("Bet: " + result);
+        System.out.println("Round: " + round);
+        System.out.println("***************************************************");
+    }
     private static void showMenuTeams(){
         try{
             String sql = "SELECT * FROM TEAM;";
@@ -1057,30 +989,24 @@ public  class info{
         }
     }
     private static void showMenuGames(){
-        try{
-            String sql = "SELECT * FROM GAME;";
-            setPreparedStatement(sql);
-            try(ResultSet resultSet = getPreparedStatement().executeQuery()){
-                if(!resultSet.next()){
-                    messageMenus("Games not found.");
-                    return;
-                }
-                while(resultSet.next()){
-                    team Team1 = FindTeams(resultSet.getInt("idTeam1"));
-                    team Team2 = FindTeams(resultSet.getInt("idTeam2"));
-                    game e = new game(Team1, Team2, resultSet.getInt("scoreGame1"),
-                            resultSet.getInt("scoreGame2"),resultSet.getInt("id")
-                            ,resultSet.getInt("idRound"));
-                    System.out.println(e.toString());
-                }
+            HashMap<Integer, game> listOfGames = downGames(downTeam());
+            if(listOfGames == null){
+                messageMenus("Games not found.");
+                return;
             }
-        }catch (SQLException e){
-            messageSQL(e);
-        }
+            for(game Game : listOfGames.values()){
+                System.out.println(Game.toString());
+            }
     }
     private static void showMenuBets(){
         try {
-            String sql = "SELECT * FROM PERSON_BETS_MATCH_TEAM;";
+            String sql = "SELECT PEOPLE.Username, PEOPLE.UserDNI, TEAM.nameTeam AS TEAM, ENUMS.enums AS ENUMS, GAME.id AS GAME, ROUNDS.nameRounds AS ROUNDS " +
+                    "FROM PEOPLE " +
+                    "JOIN PERSON_BETS_MATCH_TEAM ON PEOPLE.id = PERSON_BETS_MATCH_TEAM.idPeople " +
+                    "JOIN TEAM ON TEAM.id = PERSON_BETS_MATCH_TEAM.idTeam " +
+                    "JOIN GAME ON GAME.id = PERSON_BETS_MATCH_TEAM.idGame " +
+                    "JOIN ENUMS ON ENUMS.id = PERSON_BETS_MATCH_TEAM.idEnum " +
+                    "JOIN ROUNDS ON ROUNDS.id = PERSON_BETS_MATCH_TEAM.idRound;";
             setPreparedStatement(sql);
             try(ResultSet resultSet = getPreparedStatement().executeQuery()){
                 if (!resultSet.next()) {
@@ -1088,18 +1014,13 @@ public  class info{
                     return;
                 }
                 while (resultSet.next()) {
-                    int idGame = resultSet.getInt("idGame");
-                    int idEnum = resultSet.getInt("idEnum");
-                    int idRound = resultSet.getInt("idRound");
-                    team Team = FindTeams(resultSet.getInt("idTeam"));
-                    people Person = FindPeoples(resultSet.getInt("idPeople"));
-                    if(Team == null || Person == null) return;
-                    System.out.println("Name: " + Person.getName());
-                    System.out.println("DNI: " + Person.getDNI());
-                    System.out.println("id Game: " + idGame);
-                    System.out.println("selected name Team: " + Team.getName());
-                    System.out.println("Bet: " + FindEnum(idEnum));
-                    System.out.println("Round: " + FindRound(idRound));
+                    int idGame = resultSet.getInt("GAME");
+                    String result = resultSet.getString("ENUMS");
+                    String round = resultSet.getString("ROUNDS");
+                    String team = resultSet.getString("TEAM");
+                    String DNI = resultSet.getString("UserDNI");
+                    String nameP = resultSet.getString("Username");
+                    printBet(idGame,result,DNI,nameP,round,team);
                 }
             }
         } catch (SQLException e) {
@@ -1114,7 +1035,12 @@ public  class info{
         pointsRound = scanner.nextInt();
         System.out.println("enter points for phase success: ");
         pointsPhase = scanner.nextInt();
-        downBets(downPeople(points, pointsRound, pointsPhase), downTeam());
+        HashMap<Long, people> listOfPeople =downBets(downPeople(points, pointsRound, pointsPhase), downTeam());
+        if(listOfPeople == null){
+            messageMenus(" list of people is null.");
+        }else {
+            show(listOfPeople);
+        }
     }
 }
 
